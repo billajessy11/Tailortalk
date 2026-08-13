@@ -56,6 +56,6 @@ CANDIDATE_POOL = 200
 # Google Gemini's free tier requires no credit card / billing setup — good fit for
 # a project that shouldn't cost anything to run. Get a free key at
 # https://aistudio.google.com/app/apikey
-GEMINI_MODEL = "gemini-2.5-flash-lite"
+GEMINI_MODEL = "gemini-3.5-flash"
 DEFAULT_TOP_K = 5
 MAX_TOP_K = 12
