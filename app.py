@@ -35,7 +35,7 @@ st.caption("Chat about sarees, attach a photo, and I'll find the closest visual 
 # Session state
 # ---------------------------------------------------------------------------
 if "history" not in st.session_state:
-    st.session_state.history = []          # Anthropic message-format history
+    st.session_state.history = []          # Gemini chat history (list of Content)
 if "display_messages" not in st.session_state:
     st.session_state.display_messages = []  # what we render in the chat UI
 if "pending_image" not in st.session_state:
@@ -48,9 +48,10 @@ if "pending_image_thumb" not in st.session_state:
 # ---------------------------------------------------------------------------
 with st.sidebar:
     st.subheader("Setup")
-    api_key = os.environ.get("ANTHROPIC_API_KEY") or st.text_input(
-        "Anthropic API key", type="password",
-        help="Set ANTHROPIC_API_KEY as a deployment secret to skip this.",
+    api_key = os.environ.get("GOOGLE_API_KEY") or st.text_input(
+        "Google AI API key", type="password",
+        help="Free key, no billing required: aistudio.google.com/app/apikey. "
+             "Set GOOGLE_API_KEY as a deployment secret to skip this.",
     )
 
     st.divider()
@@ -114,7 +115,7 @@ user_text = st.chat_input("Ask about sarees, or say 'find similar' after attachi
 
 if user_text:
     if not api_key:
-        st.error("Add your Anthropic API key in the sidebar first.")
+        st.error("Add your Google AI API key in the sidebar first (it's free — see the help text).")
         st.stop()
 
     st.session_state.display_messages.append({"role": "user", "text": user_text})

@@ -15,7 +15,7 @@ a vector-search tool behind the scenes, and returns ranked results with scores.
 |---|---|---|
 | Embeddings | OpenAI CLIP `ViT-B-32` via `open_clip` | Strong general visual-semantic embeddings; CPU-inference is fast enough for free-tier hosting. Swappable to `ViT-L-14` for more quality at the cost of build time (see below). |
 | Vector store | **FAISS** (`IndexFlatIP`, exact search) | Dataset is ~1k images — exact search is cheap and removes ANN-approximation as a variable; still a real vector DB satisfying the required stack. |
-| Agent / tool-calling | Anthropic Messages API, native tool use | A single well-typed tool (`search_similar_sarees`) the model calls when it detects similarity-search intent; no LangChain/LlamaIndex dependency overhead for a project this size, but the pattern (tool schema, function-calling loop) is the same thing those frameworks wrap. |
+| Agent / tool-calling | Google Gemini API (`google-genai`), native function calling | A single well-typed function (`search_similar_sarees`) the model calls when it detects similarity-search intent. Chosen specifically because Google AI Studio's free tier needs no billing/credit card, keeping this project runnable at zero cost — no LangChain/LlamaIndex dependency overhead either, but the pattern (tool schema, function-calling loop) is the same thing those frameworks wrap. |
 | Frontend | Streamlit chat UI | Per spec. |
 
 ---
@@ -71,7 +71,7 @@ src/download_images.py     # CSV -> data/images/*.jpg + data/manifest.csv  (need
 src/embeddings.py          # the 5-vector embedding pipeline described above
 src/build_index.py         # manifest -> indexes/global.index, store.npz, metadata.parquet
 src/search.py              # the actual search tool: FAISS candidates -> fused re-rank
-src/agent.py                # Anthropic tool-calling loop (system prompt + tool schema)
+src/agent.py                # Gemini tool-calling loop (system prompt + tool schema)
 app.py                      # Streamlit chat frontend
 .github/workflows/build_index.yml  # CI job that (re)builds the index on a runner with open internet
 ```
@@ -91,7 +91,8 @@ python -m src.download_images
 python -m src.build_index
 
 # 3. Run the app
-export ANTHROPIC_API_KEY=sk-ant-...
+# Get a free API key (no billing required) at https://aistudio.google.com/app/apikey
+export GOOGLE_API_KEY=AIza...
 streamlit run app.py
 ```
 
@@ -107,9 +108,10 @@ the repo. This also re-runs automatically if `data/products.csv` changes.
    app-boot is intentionally avoided, it's slow and can hit platform health-check timeouts).
 2. On [share.streamlit.io](https://share.streamlit.io), point at this repo, `app.py` as the
    entrypoint.
-3. Add `ANTHROPIC_API_KEY` as a secret (Settings → Secrets):
+3. Add `GOOGLE_API_KEY` as a secret (Settings → Secrets) — get a free key (no billing
+   required) at [aistudio.google.com/app/apikey](https://aistudio.google.com/app/apikey):
    ```toml
-   ANTHROPIC_API_KEY = "sk-ant-..."
+   GOOGLE_API_KEY = "AIza..."
    ```
 4. Deploy. `packages.txt` handles the one system dependency (`libgl1`, for OpenCV).
 
