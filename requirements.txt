@@ -2,8 +2,9 @@ streamlit==1.40.2
 google-genai==1.20.0
 faiss-cpu==1.8.0.post1
 open_clip_torch==2.26.1
-torch==2.4.1
-torchvision==0.19.1
+--find-links https://download.pytorch.org/whl/torch_stable.html
+torch==2.4.1+cpu
+torchvision==0.19.1+cpu
 pillow==10.4.0
 numpy==1.26.4
 pandas==2.2.2
