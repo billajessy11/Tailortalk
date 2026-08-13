@@ -31,6 +31,6 @@ jobs:
         run: |
           git config user.name "tailortalk-bot"
           git config user.email "actions@users.noreply.github.com"
-          git add data/manifest.csv indexes/
+          git add indexes/
           git diff --cached --quiet || git commit -m "Auto-build: refresh search index"
           git push
