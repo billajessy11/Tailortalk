@@ -5,7 +5,7 @@ A chat agent that finds visually similar sarees from a 1,074-item catalogue. Att
 a vector-search tool behind the scenes, and returns ranked results with scores.
 
 - **App URL:** https://saree-tailortalk.streamlit.app
-- **Code:** _this repository_
+- **Code:** https://github.com/billajessy11/Tailortalk
 
 ---
 
