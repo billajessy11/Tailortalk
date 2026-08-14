@@ -15,15 +15,15 @@ the model inventing a file path) while still making the search a genuine
 function call the model chooses to invoke based on intent.
 """
 import sys
-import time
 from pathlib import Path
 sys.path.append(str(Path(__file__).parent.parent))
 
+import time
 from typing import Optional
 
 from google import genai
 from google.genai import types
-from google.genai.errors import ServerError
+from google.genai import errors as genai_errors
 
 import config
 from src import search as search_mod
@@ -72,6 +72,25 @@ SEARCH_FUNCTION = types.FunctionDeclaration(
 SEARCH_TOOL = types.Tool(function_declarations=[SEARCH_FUNCTION])
 
 
+def _send_with_retry(chat, message, max_retries: int = 3):
+    """
+    Gemini's free tier occasionally returns 503 UNAVAILABLE under load
+    ("high demand"). This is transient on Google's side, not a bug here —
+    retry with backoff before giving up.
+    """
+    delay = 2.0
+    last_err = None
+    for attempt in range(max_retries):
+        try:
+            return chat.send_message(message)
+        except genai_errors.ServerError as e:
+            last_err = e
+            if attempt < max_retries - 1:
+                time.sleep(delay)
+                delay *= 2
+    raise last_err
+
+
 class TailorTalkAgent:
     def __init__(self, api_key: str):
         self.client = genai.Client(api_key=api_key)
@@ -79,16 +98,6 @@ class TailorTalkAgent:
             system_instruction=SYSTEM_PROMPT,
             tools=[SEARCH_TOOL],
         )
-
-    def _send_with_retry(self, chat, message):
-        """Send a message to Gemini, retrying on transient 503s (server overload)."""
-        for attempt in range(3):
-            try:
-                return chat.send_message(message)
-            except ServerError:
-                if attempt == 2:
-                    raise
-                time.sleep(2 ** attempt)  # 1s, 2s, 4s
 
     def run_turn(
         self,
@@ -112,7 +121,7 @@ class TailorTalkAgent:
         chat = self.client.chats.create(
             model=config.GEMINI_MODEL, config=self.chat_config, history=history
         )
-        response = self._send_with_retry(chat, user_text + image_note)
+        response = _send_with_retry(chat, user_text + image_note)
 
         fn_call = None
         if response.function_calls:
@@ -130,12 +139,12 @@ class TailorTalkAgent:
                 tool_results = results
                 tool_output = {"matches": search_mod.results_to_json(results)}
 
-            response = self._send_with_retry(
+            response = _send_with_retry(
                 chat,
                 types.Part.from_function_response(
                     name="search_similar_sarees",
                     response=tool_output,
-                ),
+                )
             )
 
         assistant_text = response.text
