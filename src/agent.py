@@ -91,6 +91,27 @@ def _send_with_retry(chat, message, max_retries: int = 3):
     raise last_err
 
 
+def _send_with_fallback(client, chat_config, history, message, primary_model: str):
+    """
+    Try the primary model with retries; if it's still overloaded, fall back to
+    a secondary model (separate rate-limit pool) for this one message before
+    giving up entirely.
+    """
+    chat = client.chats.create(model=primary_model, config=chat_config, history=history)
+    try:
+        response = _send_with_retry(chat, message)
+        return response, chat
+    except genai_errors.ServerError:
+        fallback_model = getattr(config, "GEMINI_FALLBACK_MODEL", None)
+        if not fallback_model or fallback_model == primary_model:
+            raise
+        fallback_chat = client.chats.create(
+            model=fallback_model, config=chat_config, history=history
+        )
+        response = _send_with_retry(fallback_chat, message, max_retries=2)
+        return response, fallback_chat
+
+
 class TailorTalkAgent:
     def __init__(self, api_key: str):
         self.client = genai.Client(api_key=api_key)
@@ -118,10 +139,9 @@ class TailorTalkAgent:
             else "\n\n[No image is attached.]"
         )
 
-        chat = self.client.chats.create(
-            model=config.GEMINI_MODEL, config=self.chat_config, history=history
+        response, chat = _send_with_fallback(
+            self.client, self.chat_config, history, user_text + image_note, config.GEMINI_MODEL
         )
-        response = _send_with_retry(chat, user_text + image_note)
 
         fn_call = None
         if response.function_calls:
