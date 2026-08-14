@@ -93,23 +93,25 @@ def _send_with_retry(chat, message, max_retries: int = 3):
 
 def _send_with_fallback(client, chat_config, history, message, primary_model: str):
     """
-    Try the primary model with retries; if it's still overloaded, fall back to
-    a secondary model (separate rate-limit pool) for this one message before
-    giving up entirely.
+    Try the primary model with retries; if it's still unavailable (overloaded
+    or deprecated), fall back through a list of secondary models before
+    giving up entirely. Each fallback has its own rate-limit pool and
+    availability, so trying more than one meaningfully improves reliability
+    on the free tier.
     """
-    chat = client.chats.create(model=primary_model, config=chat_config, history=history)
-    try:
-        response = _send_with_retry(chat, message)
-        return response, chat
-    except genai_errors.ServerError:
-        fallback_model = getattr(config, "GEMINI_FALLBACK_MODEL", None)
-        if not fallback_model or fallback_model == primary_model:
-            raise
-        fallback_chat = client.chats.create(
-            model=fallback_model, config=chat_config, history=history
-        )
-        response = _send_with_retry(fallback_chat, message, max_retries=2)
-        return response, fallback_chat
+    models_to_try = [primary_model] + [
+        m for m in getattr(config, "GEMINI_FALLBACK_MODELS", []) if m != primary_model
+    ]
+    last_err = None
+    for i, model in enumerate(models_to_try):
+        chat = client.chats.create(model=model, config=chat_config, history=history)
+        try:
+            response = _send_with_retry(chat, message, max_retries=3 if i == 0 else 1)
+            return response, chat
+        except genai_errors.APIError as e:
+            last_err = e
+            continue
+    raise last_err
 
 
 class TailorTalkAgent:
