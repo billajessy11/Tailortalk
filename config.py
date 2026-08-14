@@ -61,9 +61,13 @@ CANDIDATE_POOL = 200
 # a project that shouldn't cost anything to run. Get a free key at
 # https://aistudio.google.com/app/apikey
 GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-3.5-flash")
-# Used automatically if the primary model stays overloaded (503) after retries —
-# a different model has a separate rate-limit pool, so this meaningfully helps
-# on the free tier during high-demand periods.
-GEMINI_FALLBACK_MODEL = os.environ.get("GEMINI_FALLBACK_MODEL", "gemini-2.5-flash")
+# Tried in order if the primary model is unavailable (overloaded or
+# deprecated) — each has its own rate-limit pool, so trying more than one
+# meaningfully improves reliability on the free tier.
+GEMINI_FALLBACK_MODELS = [
+    m.strip() for m in os.environ.get(
+        "GEMINI_FALLBACK_MODELS", "gemini-3.1-flash-lite,gemini-flash-latest"
+    ).split(",") if m.strip()
+]
 DEFAULT_TOP_K = 5
 MAX_TOP_K = 12
