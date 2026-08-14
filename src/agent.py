@@ -15,6 +15,7 @@ the model inventing a file path) while still making the search a genuine
 function call the model chooses to invoke based on intent.
 """
 import sys
+import time
 from pathlib import Path
 sys.path.append(str(Path(__file__).parent.parent))
 
@@ -22,6 +23,7 @@ from typing import Optional
 
 from google import genai
 from google.genai import types
+from google.genai.errors import ServerError
 
 import config
 from src import search as search_mod
@@ -78,6 +80,16 @@ class TailorTalkAgent:
             tools=[SEARCH_TOOL],
         )
 
+    def _send_with_retry(self, chat, message):
+        """Send a message to Gemini, retrying on transient 503s (server overload)."""
+        for attempt in range(3):
+            try:
+                return chat.send_message(message)
+            except ServerError:
+                if attempt == 2:
+                    raise
+                time.sleep(2 ** attempt)  # 1s, 2s, 4s
+
     def run_turn(
         self,
         history: list,
@@ -100,7 +112,7 @@ class TailorTalkAgent:
         chat = self.client.chats.create(
             model=config.GEMINI_MODEL, config=self.chat_config, history=history
         )
-        response = chat.send_message(user_text + image_note)
+        response = self._send_with_retry(chat, user_text + image_note)
 
         fn_call = None
         if response.function_calls:
@@ -118,11 +130,12 @@ class TailorTalkAgent:
                 tool_results = results
                 tool_output = {"matches": search_mod.results_to_json(results)}
 
-            response = chat.send_message(
+            response = self._send_with_retry(
+                chat,
                 types.Part.from_function_response(
                     name="search_similar_sarees",
                     response=tool_output,
-                )
+                ),
             )
 
         assistant_text = response.text
